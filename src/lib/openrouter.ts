@@ -3,7 +3,7 @@
  * Routes requests to multiple AI models via OpenRouter
  */
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_API_URL = process.env.ROUTER_API_URL || process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions'
 
 /**
  * Maps API error responses to specific, actionable user-facing messages.
