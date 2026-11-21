@@ -362,7 +362,7 @@ chatRoutes.post('/completions', async (req, res) => {
         pipeline.processedMessages,
         openrouter_api_key,
         raceParams,
-        { minResults: Math.min(5, models.length), gracePeriod: 5000, hardTimeout: 45000 },
+        { minResults: Math.min(process.env.ROUTER_API_URL ? 2 : 5, models.length), gracePeriod: 5000, hardTimeout: 45000 },
       )
 
       const scoredResults: ModelResult[] = results.map(r => ({
@@ -532,7 +532,7 @@ chatRoutes.post('/completions', async (req, res) => {
         pipeline.processedMessages,
         openrouter_api_key,
         queryParams,
-        { minResponses: Math.min(3, models.length), hardTimeout: 60000 },
+        { minResponses: Math.min(process.env.ROUTER_API_URL ? 2 : 3, models.length), hardTimeout: 60000 },
       )
 
       const scoredResponses: ConsortiumResponse[] = results.map(r => ({
