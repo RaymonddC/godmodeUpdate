@@ -708,7 +708,8 @@ chatRoutes.post('/completions', async (req, res) => {
         if (pipeline.finalParams.presence_penalty !== undefined) streamBody.presence_penalty = pipeline.finalParams.presence_penalty
         if (pipeline.finalParams.repetition_penalty !== undefined) streamBody.repetition_penalty = pipeline.finalParams.repetition_penalty
 
-        const upstreamRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const upstreamEndpoint = process.env.ROUTER_API_URL || process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions'
+        const upstreamRes = await fetch(upstreamEndpoint, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${openrouter_api_key}`,

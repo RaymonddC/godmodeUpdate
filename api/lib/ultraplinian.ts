@@ -371,7 +371,8 @@ export async function queryModel(
     if (params.presence_penalty !== undefined) body.presence_penalty = params.presence_penalty
     if (params.repetition_penalty !== undefined) body.repetition_penalty = params.repetition_penalty
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const routerEndpoint = process.env.ROUTER_API_URL || process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions'
+    const response = await fetch(routerEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -388,8 +389,25 @@ export async function queryModel(
       throw new Error(errorData.error?.message || `HTTP ${response.status}`)
     }
 
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content || ''
+    const rawText = await response.text()
+    let content = ''
+    try {
+      const data = JSON.parse(rawText)
+      content = data.choices?.[0]?.message?.content || ''
+    } catch {
+      if (rawText.includes('data:')) {
+        const lines = rawText.split('\n')
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
+            try {
+              const chunk = JSON.parse(trimmed.slice(6))
+              content += chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? ''
+            } catch {}
+          }
+        }
+      }
+    }
 
     if (!content) throw new Error('Empty response')
 

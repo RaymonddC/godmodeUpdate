@@ -117,7 +117,8 @@ export async function sendMessage({
     model,
     messages,
     temperature,
-    max_tokens: maxTokens
+    max_tokens: maxTokens,
+    stream: false
   }
 
   // Add optional sampling parameters (only if explicitly set)
@@ -157,13 +158,39 @@ export async function sendMessage({
     throw new Error(formatAPIError(response.status, errorData.error?.message))
   }
 
-  const data: OpenRouterResponse = await response.json()
+  const rawText = await response.text()
+  let content = ''
 
-  if (!data.choices || data.choices.length === 0) {
+  try {
+    const data: OpenRouterResponse = JSON.parse(rawText)
+    if (data.choices && data.choices.length > 0) {
+      content = data.choices[0].message?.content || ''
+    }
+  } catch (parseErr) {
+    // Upstream proxy (like 9Router / Claude Code adapter) returned SSE stream (data: {...})
+    if (rawText.includes('data:')) {
+      const lines = rawText.split('\n')
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
+          try {
+            const chunk = JSON.parse(trimmed.slice(6))
+            const delta = chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? ''
+            content += delta
+          } catch {}
+        }
+      }
+    }
+    if (!content) {
+      throw parseErr
+    }
+  }
+
+  if (!content) {
     throw new Error('No response from model')
   }
 
-  return data.choices[0].message.content
+  return content
 }
 
 /**
