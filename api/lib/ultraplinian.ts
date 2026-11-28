@@ -131,6 +131,33 @@ export const ULTRAPLINIAN_MODELS = {
 export type SpeedTier = 'fast' | 'standard' | 'smart' | 'power' | 'ultra'
 
 export function getModelsForTier(tier: SpeedTier): string[] {
+  // If user configured custom race models for 9Router / local router:
+  if (process.env.ROUTER_RACE_MODELS) {
+    const custom = process.env.ROUTER_RACE_MODELS.split(',').map(m => m.trim()).filter(Boolean)
+    if (custom.length > 0) return custom
+  }
+
+  // If ROUTER_API_URL is active, default to models available in 9Router:
+  if (process.env.ROUTER_API_URL) {
+    const routerFast = [
+      'cc/claude-sonnet-5-5',
+      'gemini/gemini-3.8-flash',
+      'cx/gpt-6.1-sol',
+      'openrouter/openrouter/free',
+      'cc/claude-haiku-5-5',
+      'gemini/gemini-3.7-flash',
+      'ollama/qwen3.5',
+    ]
+    const routerStandard = [
+      'cc/claude-opus-5-5',
+      'cx/gpt-5.6-sol',
+      'cx/gpt-6-astra',
+      'openrouter/qwen/qwen3-coder:free',
+    ]
+    if (tier === 'fast') return routerFast
+    return [...routerFast, ...routerStandard]
+  }
+
   const tiers = ULTRAPLINIAN_MODELS
   switch (tier) {
     case 'fast':
@@ -259,7 +286,7 @@ export function raceModels(
   },
   config: RaceConfig = {},
 ): Promise<ModelResult[]> {
-  const minResults = config.minResults ?? 5
+  const minResults = config.minResults ?? Math.min(process.env.ROUTER_API_URL ? 2 : 5, models.length)
   const gracePeriod = config.gracePeriod ?? 5000
   const hardTimeout = config.hardTimeout ?? 45000
 
@@ -362,7 +389,11 @@ export async function queryModel(
       model,
       messages,
       temperature: params.temperature ?? 0.7,
-      max_tokens: params.max_tokens ?? 4096,
+      // Cap tokens for race — shorter responses = faster winner selection
+      max_tokens: Math.min(params.max_tokens ?? 2048, 2048),
+      // Force non-streaming so we get a single JSON response (not SSE chunks)
+      // which response.text() can read without waiting for a long-lived stream
+      stream: false,
     }
 
     if (params.top_p !== undefined) body.top_p = params.top_p
